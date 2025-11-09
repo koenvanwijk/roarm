@@ -1,0 +1,23 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Teleop SO-101 to Roarm (debug)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "lerobot.scripts.lerobot_teleoperate",
+            "console": "integratedTerminal",
+            "args": [
+                "--robot.type", "lerobot_robot_roarm",
+                "--robot.id", "follower",
+                "--robot.roarm_type", "roarm_m3",
+                "--robot.port", "/dev/ttyUSB1",
+                "--robot.cameras", "{}",
+                "--teleop.type", "so101_leader",
+                "--teleop.id", "leader",
+                "--teleop.port", "/dev/ttyACM0",
+                "--fps", "1"
+            ]
+        }
+    ]
+}

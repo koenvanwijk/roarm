@@ -272,7 +272,9 @@ class Roarm(Robot):
         Send action command to robot.
         
         Args:
-            action: Dictionary with joint position targets (in radians).
+            action: Dictionary with joint position targets.
+                   For SO-101 leader: values are percentages in range [-100, +100]
+                   For other leaders: values are in radians
             
         Returns:
             The action that was actually sent.
@@ -285,24 +287,25 @@ class Roarm(Robot):
         for joint_name in self.config.joint_names:
             key = f"{joint_name}.pos"
             if key in action:
-                # Convert from radians to degrees
-                angle_rad = action[key]
-                angle_deg = np.rad2deg(angle_rad)
+                value = action[key]
                 
-                # Map from leader range (-100° to +100°) to follower's full range
-                # This assumes the leader (SO-101) sends values in the range -100° to +100°
-                # which we scale to the full range of each joint
-                if joint_name in self.config.joint_limits_deg:
-                    min_deg, max_deg = self.config.joint_limits_deg[joint_name]
-                    
-                    # Scale from [-100, +100] range to [min_deg, max_deg] range
-                    # First clamp input to -100/+100 range
-                    angle_deg = np.clip(angle_deg, -100, 100)
-                    # Then scale: map [-100, +100] → [min_deg, max_deg]
-                    angle_deg = min_deg + (angle_deg + 100) * (max_deg - min_deg) / 200.0
+                # Check if value is in percentage range (SO-101 sends -100 to +100)
+                # or in radian range (other leaders send -pi to +pi)
+                if abs(value) <= np.pi:
+                    # Assume it's in radians (from Roarm leader or other radian-based leaders)
+                    angle_deg = np.rad2deg(value)
                 else:
-                    # Fallback to general limits
-                    angle_deg = np.clip(angle_deg, -180, 180)
+                    # Assume it's a percentage (from SO-101: -100 to +100)
+                    # Map from [-100, +100] to the full range of this joint
+                    if joint_name in self.config.joint_limits_deg:
+                        min_deg, max_deg = self.config.joint_limits_deg[joint_name]
+                        # Clamp to [-100, +100] range
+                        percentage = np.clip(value, -100, 100)
+                        # Map [-100, +100] → [min_deg, max_deg]
+                        angle_deg = min_deg + (percentage + 100) * (max_deg - min_deg) / 200.0
+                    else:
+                        # Fallback: treat as degrees and clamp
+                        angle_deg = np.clip(value, -180, 180)
                 
                 angles_deg.append(float(angle_deg))
             else:

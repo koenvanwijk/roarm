@@ -5,11 +5,13 @@ This document provides an overview of the complete project structure.
 ## Directory Structure
 
 ```
-lerobot_robot_roarm/
-├── lerobot_robot_roarm/          # Main package
+roarm/
+├── lerobot_robot_roarm/          # Main package directory
 │   ├── __init__.py               # Package initialization, exports main classes
 │   ├── config_roarm.py           # RoarmConfig class (robot configuration)
+│   ├── config_roarm_teleoperator.py  # RoarmTeleoperatorConfig class
 │   ├── roarm.py                  # Roarm class (main Robot implementation)
+│   ├── roarm_teleoperator.py     # RoarmTeleoperator class (leader arm)
 │   └── processors.py             # Processor pipelines for actions/observations
 │
 ├── examples/                      # Example scripts
@@ -20,11 +22,23 @@ lerobot_robot_roarm/
 │   ├── train_policy.py           # Training policies
 │   └── run_policy.py             # Running inference
 │
+├── test/                          # Test scripts
+│   ├── test_connection.py        # Connection test
+│   └── test_two_robots.py        # Two-robot test
+│
+├── .vscode/                       # VSCode configuration
+│   └── launch.json               # Debug configuration for teleoperation
+│
 ├── README.md                      # Main documentation
 ├── QUICKSTART.md                  # Quick start guide
+├── CHANGELOG.md                   # Version history and changes
+├── PROJECT_STRUCTURE.md           # This file - project structure overview
+├── SUMMARY.md                     # Project summary
+├── INTEGRATION_COMPLETE.md        # Integration completion notes
 ├── LICENSE                        # Apache 2.0 license
 ├── pyproject.toml                 # Package configuration and dependencies
 ├── MANIFEST.in                    # Package manifest for distribution
+├── install.sh                     # Installation script
 └── .gitignore                     # Git ignore patterns
 ```
 
