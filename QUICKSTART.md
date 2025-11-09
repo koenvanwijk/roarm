@@ -20,11 +20,15 @@ pip install roarm-sdk
 
 ### 2. Install This Package
 
+#### From GitHub (recommended):
 ```bash
-# Clone or navigate to the package directory
-cd lerobot_robot_roarm
+pip install git+https://github.com/koenvanwijk/roarm.git
+```
 
-# Install in editable mode
+#### From source (for development):
+```bash
+git clone https://github.com/koenvanwijk/roarm.git
+cd roarm
 pip install -e .
 ```
 

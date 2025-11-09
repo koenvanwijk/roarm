@@ -74,16 +74,31 @@ Main robot implementation with full LeRobot Robot interface:
 - `calibrate()`: Perform robot calibration
 - `configure()`: Set up robot parameters
 - `get_observation()`: Read current state (joints, gripper, cameras)
-- `send_action()`: Send commands to robot
+- `send_action()`: Send commands to robot (auto-detects radians vs percentages)
 
 **Key Features:**
 - Supports both serial and WiFi connections
 - Automatic angle conversion (degrees ↔ radians)
+- Auto-detection of input format (radians vs percentages from SO-101)
+- Percentage-to-degree scaling for SO-101 leader (-100% to +100% → full joint range)
+- Per-joint limit enforcement with asymmetric ranges
+- Proper logging system (no debug spam)
 - Safety clamping for joint positions
 - Camera integration
 - Torque control for teleoperation
 
-### 3. Processors (`processors.py`)
+### 3. RoarmTeleoperator Class (`roarm_teleoperator.py`)
+
+Leader arm implementation for teleoperation:
+
+**Key Features:**
+- Disables torque for manual movement
+- Reads joint positions from leader arm
+- Supports both Roarm-to-Roarm and SO-101-to-Roarm teleoperation
+- Proper logging of leader positions
+- Automatic re-enabling of torque on disconnect
+
+### 4. Processors (`processors.py`)
 
 Processing pipelines for action/observation transformations:
 

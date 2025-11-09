@@ -5,14 +5,18 @@ This package provides integration for Roarm robot arms with the [HuggingFace LeR
 ## Features
 
 - ✅ Full LeRobot Robot interface implementation
-- ✅ Support for both serial and WiFi connections
-- ✅ Joint position control
+- ✅ Support for both serial (USB) and WiFi connections
+- ✅ Roarm-to-Roarm teleoperation (leader-follower)
+- ✅ SO-101 leader arm support with automatic percentage scaling
+- ✅ Joint position control with per-joint limits
 - ✅ Gripper control
 - ✅ Camera integration
 - ✅ Calibration support
 - ✅ Processing pipelines for action/observation normalization
-- ✅ Safety constraints (velocity limiting)
+- ✅ Proper logging system (no debug spam)
+- ✅ Safety constraints (velocity limiting, joint limits)
 - ✅ Compatible with LeRobot's data collection and training tools
+- ✅ VSCode debug configuration included
 
 ## Installation
 
@@ -81,7 +85,55 @@ robot.send_action(action)
 robot.disconnect()
 ```
 
-### 2. Recording Demonstrations
+### 2. Teleoperation
+
+#### Roarm-to-Roarm (Serial):
+```bash
+python -m lerobot.scripts.lerobot_teleoperate \
+  --robot.type lerobot_robot_roarm \
+  --robot.id follower \
+  --robot.roarm_type roarm_m3 \
+  --robot.port /dev/ttyUSB1 \
+  --robot.cameras '{}' \
+  --teleop.type lerobot_robot_roarm \
+  --teleop.id leader \
+  --teleop.roarm_type roarm_m3 \
+  --teleop.port /dev/ttyUSB0 \
+  --fps 10
+```
+
+#### Roarm-to-Roarm (WiFi):
+```bash
+python -m lerobot.scripts.lerobot_teleoperate \
+  --robot.type lerobot_robot_roarm \
+  --robot.id follower \
+  --robot.roarm_type roarm_m3 \
+  --robot.host 192.168.86.55 \
+  --robot.cameras '{}' \
+  --teleop.type lerobot_robot_roarm \
+  --teleop.id leader \
+  --teleop.roarm_type roarm_m3 \
+  --teleop.host 192.168.86.43 \
+  --fps 10
+```
+
+#### SO-101 to Roarm:
+```bash
+python -m lerobot.scripts.lerobot_teleoperate \
+  --robot.type lerobot_robot_roarm \
+  --robot.id follower \
+  --robot.roarm_type roarm_m3 \
+  --robot.port /dev/ttyUSB1 \
+  --robot.cameras '{}' \
+  --teleop.type so101_leader \
+  --teleop.id leader \
+  --teleop.port /dev/ttyACM0 \
+  --fps 10
+```
+
+**Note:** SO-101 values (-100% to +100%) are automatically scaled to the full range of each Roarm joint.
+
+### 3. Recording Demonstrations
 
 ```bash
 # Record demonstrations using LeRobot CLI
@@ -224,13 +276,27 @@ If calibration fails:
 3. Check for mechanical obstructions
 4. Verify power supply is adequate
 
+### Teleoperation Issues
+
+**Follower not moving:**
+- Check that leader arm is properly connected
+- Verify joint limits are configured correctly
+- Check logs for warnings about failed commands
+- For SO-101: ensure values are being scaled correctly (-100% to +100%)
+
+**Movements are inverted or wrong:**
+- Verify joint naming matches between leader and follower
+- Check joint_limits_deg configuration in config_roarm.py
+- Review percentage-to-degree scaling logic
+
 ### Performance Issues
 
 If movements are jerky or slow:
 - Increase `default_speed` in config
 - Reduce `max_ee_step_m` for smoother trajectories
 - Check USB cable quality (for serial)
-- Verify network latency (for WiFi)
+- Verify network latency (for WiFi) - WiFi typically runs at ~3 Hz vs 7-10 Hz for serial
+- Lower `fps` parameter if experiencing lag
 
 ## Contributing
 
