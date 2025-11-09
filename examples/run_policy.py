@@ -10,7 +10,7 @@ from pathlib import Path
 
 def run_policy_cli():
     """
-    Run a trained policy using LeRobot's control_robot script.
+    Run a trained policy using LeRobot's CLI.
     
     This is the recommended way to run inference.
     """
@@ -23,7 +23,7 @@ def run_policy_cli():
         sys.exit(1)
     
     cmd = [
-        "python", "-m", "lerobot.scripts.control_robot",
+        "lerobot-control",
         
         # Robot configuration
         "--robot.type=lerobot_robot_roarm",
@@ -166,7 +166,7 @@ def evaluate_policy():
         sys.exit(1)
     
     cmd = [
-        "python", "-m", "lerobot.scripts.eval",
+        "lerobot-eval",
         
         # Robot
         "--robot.type=lerobot_robot_roarm",

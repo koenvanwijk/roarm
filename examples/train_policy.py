@@ -16,7 +16,7 @@ def train_act_policy():
     """
     
     cmd = [
-        "python", "-m", "lerobot.scripts.train",
+        "lerobot-train",
         
         # Dataset
         "--dataset-repo-id=my-username/roarm_demos",
@@ -26,12 +26,11 @@ def train_act_policy():
         "--policy=act",
         "--policy.chunk_size=100",
         "--policy.n_action_steps=100",
-        "--policy.input_shapes.observation.joint_1.pos=[1]",
-        "--policy.input_shapes.observation.joint_2.pos=[1]",
-        "--policy.input_shapes.observation.joint_3.pos=[1]",
-        "--policy.input_shapes.observation.joint_4.pos=[1]",
-        "--policy.input_shapes.observation.joint_5.pos=[1]",
-        "--policy.input_shapes.observation.joint_6.pos=[1]",
+        "--policy.input_shapes.observation.shoulder_pan.pos=[1]",
+        "--policy.input_shapes.observation.shoulder_lift.pos=[1]",
+        "--policy.input_shapes.observation.elbow_flex.pos=[1]",
+        "--policy.input_shapes.observation.wrist_flex.pos=[1]",
+        "--policy.input_shapes.observation.wrist_roll.pos=[1]",
         "--policy.input_shapes.observation.gripper.pos=[1]",
         "--policy.input_shapes.observation.wrist_cam=[3,480,640]",
         
@@ -75,7 +74,7 @@ def train_diffusion_policy():
     """
     
     cmd = [
-        "python", "-m", "lerobot.scripts.train",
+        "lerobot-train",
         
         # Dataset
         "--dataset-repo-id=my-username/roarm_demos",
@@ -119,7 +118,7 @@ def train_simple_policy():
     """
     
     cmd = [
-        "python", "-m", "lerobot.scripts.train",
+        "lerobot-train",
         
         # Dataset
         "--dataset-repo-id=my-username/roarm_demos",
