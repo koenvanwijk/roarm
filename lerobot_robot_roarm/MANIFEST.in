@@ -1,0 +1,6 @@
+include README.md
+include LICENSE
+include QUICKSTART.md
+include pyproject.toml
+recursive-include lerobot_robot_roarm *.py
+recursive-include examples *.py *.md
