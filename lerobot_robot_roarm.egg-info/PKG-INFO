@@ -58,15 +58,21 @@ This package provides integration for Roarm robot arms with the [HuggingFace LeR
 
 ### Install this package
 
-#### From source (recommended for development):
+#### From GitHub (recommended):
 ```bash
-cd lerobot_robot_roarm
+pip install git+https://github.com/koenvanwijk/roarm.git
+```
+
+#### From source (for development):
+```bash
+git clone https://github.com/koenvanwijk/roarm.git
+cd roarm
 pip install -e .
 ```
 
 #### From PyPI (once published):
 ```bash
-pip install lerobot_robot_roarm
+pip install lerobot-robot-roarm
 ```
 
 ## Quick Start
