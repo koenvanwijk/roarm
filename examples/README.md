@@ -45,7 +45,7 @@ python examples/record_demos.py
 **Alternative (direct CLI):**
 ```bash
 lerobot-record \
-  --robot.type=roarm \
+  --robot.type=lerobot_robot_roarm \
   --robot.roarm_type=roarm_m3 \
   --robot.port=/dev/ttyUSB0 \
   --repo-id=my-username/roarm_demos \
@@ -88,7 +88,7 @@ python examples/run_policy.py
 **Alternative (direct CLI):**
 ```bash
 python -m lerobot.scripts.control_robot \
-  --robot.type=roarm \
+  --robot.type=lerobot_robot_roarm \
   --robot.roarm_type=roarm_m3 \
   --robot.port=/dev/ttyUSB0 \
   --policy-checkpoint=outputs/roarm_act/checkpoint-epoch-1000

@@ -133,19 +133,19 @@ python -m lerobot.scripts.lerobot_teleoperate \
 
 **Note:** SO-101 values (-100% to +100%) are automatically scaled to the full range of each Roarm joint.
 
-### 3. Recording Demonstrations
+### 4. Recording Demonstrations
 
 ```bash
 # Record demonstrations using LeRobot CLI
 lerobot-record \
-  --robot.type=roarm \
+  --robot.type=lerobot_robot_roarm \
   --robot.roarm_type=roarm_m3 \
   --robot.port=/dev/ttyUSB0 \
   --repo-id=my-username/roarm_demos \
   --num-episodes=10
 ```
 
-### 3. Training a Policy
+### 5. Training a Policy
 
 ```bash
 # Train a policy on recorded data
@@ -155,12 +155,12 @@ python lerobot/scripts/train.py \
   --output-dir=outputs/roarm_act
 ```
 
-### 4. Running Inference
+### 6. Running Inference
 
 ```bash
 # Run the trained policy on the robot
 python lerobot/scripts/control_robot.py \
-  --robot.type=roarm \
+  --robot.type=lerobot_robot_roarm \
   --robot.roarm_type=roarm_m3 \
   --robot.port=/dev/ttyUSB0 \
   --policy-checkpoint=outputs/roarm_act/checkpoint.pth
@@ -319,9 +319,9 @@ If you use this package in your research, please cite:
 ```bibtex
 @software{lerobot_robot_roarm,
   title={LeRobot Roarm Integration},
-  author={Roarm Integration Team},
+  author={Koen van Wijk},
   year={2024},
-  url={https://github.com/yourusername/lerobot_robot_roarm}
+  url={https://github.com/koenvanwijk/roarm}
 }
 ```
 
@@ -334,5 +334,5 @@ If you use this package in your research, please cite:
 ## Support
 
 - 📖 Documentation: See this README and code examples
-- 💬 Issues: [GitHub Issues](https://github.com/yourusername/lerobot_robot_roarm/issues)
+- 💬 Issues: [GitHub Issues](https://github.com/koenvanwijk/roarm/issues)
 - 🤗 LeRobot Discord: [Join the community](https://discord.gg/s3KuuzsPFb)
