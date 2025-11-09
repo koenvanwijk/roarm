@@ -3,6 +3,9 @@ Teleoperation example for Roarm robot.
 
 This script demonstrates how to set up teleoperation between two Roarm robots,
 where one acts as a leader (teleoperator) and the other as a follower.
+
+Note: This example uses LeRobot's teleoperation framework. For direct control,
+use the lerobot-teleoperate command instead (see README.md).
 """
 import time
 import threading
@@ -11,7 +14,11 @@ from lerobot_robot_roarm import RoarmConfig, Roarm
 
 
 class RoarmTeleop:
-    """Teleoperation handler for two Roarm robots."""
+    """Teleoperation handler for two Roarm robots.
+    
+    This is a simplified example. For production use, use LeRobot's
+    teleoperation framework with RoarmTeleoperator class.
+    """
     
     def __init__(
         self, 

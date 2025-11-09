@@ -137,7 +137,7 @@ class RoarmTeleoperator(Teleoperator):
         """Get action from teleoperator (reads joint positions).
         
         Returns:
-            RobotAction with joint positions in the format expected by the robot
+            RobotAction with joint positions as percentages (-100 to +100)
         """
         if not self._connected:
             raise RuntimeError("Roarm teleoperator not connected")
@@ -150,13 +150,29 @@ class RoarmTeleoperator(Teleoperator):
         # Log leader position
         logging.info(f"Leader position (deg): {[f'{a:.1f}' for a in angles[:6]]}")
         
-        # Convert to radians and create action dict with proper keys
+        # Joint limits in degrees for Roarm M3
+        joint_limits = {
+            'shoulder_pan': (-190, 190),
+            'shoulder_lift': (-110, 110),
+            'elbow_flex': (-70, 190),
+            'wrist_flex': (-110, 110),
+            'wrist_roll': (-190, 190),
+            'gripper': (-10, 100)
+        }
+        
+        # Convert to percentages [-100, +100] and create action dict
         action_dict = {}
         joint_names = ['shoulder_pan', 'shoulder_lift', 'elbow_flex', 'wrist_flex', 'wrist_roll', 'gripper']
         
         for i, joint_name in enumerate(joint_names):
-            angle_rad = np.deg2rad(angles[i])
-            action_dict[f"{joint_name}.pos"] = float(angle_rad)
+            angle_deg = angles[i]
+            min_deg, max_deg = joint_limits[joint_name]
+            
+            # Map [min_deg, max_deg] → [-100, +100]
+            percentage = ((angle_deg - min_deg) / (max_deg - min_deg)) * 200.0 - 100.0
+            percentage = np.clip(percentage, -100.0, 100.0)
+            
+            action_dict[f"{joint_name}.pos"] = float(percentage)
         
         return RobotAction(**action_dict)
     

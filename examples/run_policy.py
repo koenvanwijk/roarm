@@ -26,7 +26,7 @@ def run_policy_cli():
         "python", "-m", "lerobot.scripts.control_robot",
         
         # Robot configuration
-        "--robot.type=roarm",
+        "--robot.type=lerobot_robot_roarm",
         "--robot.roarm_type=roarm_m3",
         "--robot.port=/dev/ttyUSB0",  # or --robot.host=192.168.1.100
         
@@ -169,7 +169,7 @@ def evaluate_policy():
         "python", "-m", "lerobot.scripts.eval",
         
         # Robot
-        "--robot.type=roarm",
+        "--robot.type=lerobot_robot_roarm",
         "--robot.roarm_type=roarm_m3",
         "--robot.port=/dev/ttyUSB0",
         

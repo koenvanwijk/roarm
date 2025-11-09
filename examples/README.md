@@ -2,14 +2,23 @@
 
 This directory contains example scripts demonstrating how to use the Roarm robot with LeRobot.
 
+## Important Note About Action Format
+
+Actions in LeRobot use **percentage format** (-100 to +100), not radians. This matches LeRobot's convention where values represent the motor's native units:
+- `-100`: Minimum position for that joint
+- `0`: Center position for that joint  
+- `+100`: Maximum position for that joint
+
+Each joint maps these percentages to its physical limits defined in `config_roarm.py`.
+
 ## Examples
 
 ### 1. Basic Control (`basic_control.py`)
 
-Demonstrates basic robot control:
+Demonstrates basic robot control with percentage-based actions:
 - Connecting to the robot
-- Reading observations (joint positions)
-- Sending actions (joint commands)
+- Reading observations (returned as percentages)
+- Sending actions (percentages -100 to +100)
 - Moving the gripper
 
 **Run:**

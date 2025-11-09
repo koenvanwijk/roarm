@@ -21,7 +21,7 @@ def record_with_cli():
         "lerobot-record",
         
         # Robot configuration
-        "--robot.type=roarm",
+        "--robot.type=lerobot_robot_roarm",
         "--robot.roarm_type=roarm_m3",
         "--robot.port=/dev/ttyUSB0",  # or --robot.host=192.168.1.100
         
@@ -62,12 +62,12 @@ def record_with_teleoperation():
         "lerobot-record",
         
         # Follower robot (the one being recorded)
-        "--robot.type=roarm",
+        "--robot.type=lerobot_robot_roarm",
         "--robot.roarm_type=roarm_m3",
         "--robot.port=/dev/ttyUSB1",
         
         # Leader robot (for teleoperation)
-        "--teleop.type=roarm",  # You'd need to implement a teleoperator
+        "--teleop.type=lerobot_robot_roarm",
         "--teleop.roarm_type=roarm_m3",
         "--teleop.port=/dev/ttyUSB0",
         
