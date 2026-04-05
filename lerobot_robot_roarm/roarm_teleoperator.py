@@ -1,7 +1,9 @@
-"""Roarm M3 Teleoperator implementation for LeRobot.
+"""
+Roarm teleoperator (leader arm) for LeRobot >= 0.5.0.
 
-The teleoperator is used as the "leader" arm - you manually move it and the
-follower robot mirrors your movements.
+Use a Roarm with torque disabled as a leader arm. Joint positions are read
+and returned as normalized values [-100, +100] so they can be sent directly
+to a Roarm follower robot.
 """
 
 import logging
@@ -11,224 +13,174 @@ from typing import Any
 import numpy as np
 from roarm_sdk import roarm as RoarmSDK
 
-try:
-    from lerobot.processor import RobotAction, RobotObservation
-except ImportError:
-    RobotAction = dict  # type: ignore
-    RobotObservation = dict  # type: ignore
-
-try:
-    from lerobot.teleoperators.teleoperator import Teleoperator
-except ImportError:
-    from lerobot.teleoperators import Teleoperator  # type: ignore
+from lerobot.teleoperators.teleoperator import Teleoperator
+from lerobot.utils.errors import DeviceAlreadyConnectedError, DeviceNotConnectedError
 
 from .config_roarm_teleoperator import RoarmTeleoperatorConfig
+from .roarm import ROARM_ACTION_MODES
+
+logger = logging.getLogger(__name__)
 
 
 class RoarmTeleoperator(Teleoperator):
-    """Roarm M3 teleoperator for teleoperation (leader arm).
-    
-    This class reads joint positions from a Roarm robot with torque disabled,
-    allowing manual movement. The positions are then sent to the follower robot.
     """
-    
+    Roarm leader arm teleoperator for LeRobot >= 0.5.0.
+
+    Connects to a Roarm with torque disabled. Reads joint positions and
+    returns them as normalized values matching the follower robot's action space.
+
+    Action / feedback contract:
+      - {joint}.pos: normalized [-100, +100]
+      - gripper.pos: normalized [0, 100]
+    """
+
+    config_class = RoarmTeleoperatorConfig
+    name = "roarm_teleoperator"
+
     def __init__(self, config: RoarmTeleoperatorConfig):
-        """Initialize the Roarm teleoperator.
-        
-        Args:
-            config: Configuration for the Roarm teleoperator
-        """
-        self.name = config.id or "roarm_teleoperator"
         super().__init__(config)
         self.config = config
         self.roarm = None
-        self._connected = False
-        
-        logging.info(f"Initializing Roarm teleoperator (id={config.id})")
-    
-    def connect(self) -> None:
-        """Connect to the Roarm robot and disable torque for manual control."""
-        if self._connected:
-            teleop_id = f" ({self.config.id})" if self.config.id else ""
-            logging.warning(f"Roarm teleoperator{teleop_id} already connected")
-            return
-        
-        teleop_id = f" ({self.config.id})" if self.config.id else ""
-        logging.info(f"Connecting to Roarm teleoperator{teleop_id}...")
-        
-        if self.config.port:
-            # Connect via serial
-            self.roarm = RoarmSDK(
-                port=self.config.port, 
-                baudrate=self.config.baudrate,
-                roarm_type=self.config.roarm_type
-            )
-        elif self.config.host:
-            # Connect via WiFi
-            self.roarm = RoarmSDK(
-                host=self.config.host,
-                roarm_type=self.config.roarm_type
-            )
-        else:
-            raise ValueError(f"Either port or host must be specified for Roarm teleoperator{teleop_id}")
-        
-        # Wait for connection
-        time.sleep(0.5)
-        
-        # Disable torque to allow manual movement
-        self.roarm.torque_set(cmd=0)
-        time.sleep(0.1)
-        
-        self._connected = True
-        logging.info(f"✓ Roarm teleoperator{teleop_id} connected and torque disabled")
-    
-    def disconnect(self) -> None:
-        """Disconnect from the Roarm robot."""
-        if not self._connected:
-            return
-        
-        teleop_id = f" ({self.config.id})" if self.config.id else ""
-        
-        if self.roarm:
-            # Re-enable torque before disconnecting
-            try:
-                self.roarm.torque_set(cmd=1)
-                time.sleep(0.1)
-            except Exception as e:
-                logging.warning(f"Could not re-enable torque on Roarm{teleop_id}: {e}")
-        
-        self._connected = False
-        logging.info(f"✓ Roarm teleoperator{teleop_id} disconnected")
-    
-    def get_observation(self) -> RobotObservation:
-        """Read current joint positions from the teleoperator.
-        
-        Returns:
-            RobotObservation with joint positions and gripper state
-        """
-        if not self._connected:
-            raise RuntimeError("Roarm teleoperator not connected")
-        
-        # Get current joint angles (in degrees)
-        angles = self.roarm.joints_angle_get()
-        if not angles or len(angles) < 6:
-            raise RuntimeError("Failed to read joint angles from teleoperator")
-        
-        # Convert to radians
-        joints = np.deg2rad(np.array(angles[:6], dtype=np.float32))
-        
-        # Create observation dict matching the robot's state structure
-        observation = {
-            'observation.state': joints,
-        }
-        
-        return RobotObservation(**observation)
-    
-    def calibrate(self, *args: Any, **kwargs: Any) -> None:
-        """Calibration is not required for Roarm teleoperator."""
-        logging.info("Calibration not required for Roarm teleoperator")
-        pass
-    
-    def is_connected(self) -> bool:
-        """Check if teleoperator is connected."""
-        return self._connected
-    
-    def is_calibrated(self) -> bool:
-        """Check if teleoperator is calibrated (always True for Roarm)."""
-        return True
-    
-    def configure(self) -> None:
-        """Configure the teleoperator (no configuration needed for Roarm)."""
-        pass
-    
-    def get_action(self) -> RobotAction:
-        """Get action from teleoperator (reads joint positions).
-        
-        Returns:
-            RobotAction with joint positions as percentages (-100 to +100)
-        """
-        if not self._connected:
-            raise RuntimeError("Roarm teleoperator not connected")
-        
-        # Get current joint angles (in degrees)
-        angles = self.roarm.joints_angle_get()
-        if not angles or len(angles) < 6:
-            raise RuntimeError("Failed to read joint angles from teleoperator")
-        
-        # Get and log end-effector position
-        try:
-            pose = self.roarm.pose_get()
-            if pose and len(pose) >= 6:
-                logging.info(f"Leader EE pos (mm): x={pose[0]:.1f}, y={pose[1]:.1f}, z={pose[2]:.1f}, roll={pose[3]:.1f}°, pitch={pose[4]:.1f}°, yaw={pose[5]:.1f}°")
-        except Exception as e:
-            logging.debug(f"Could not get EE pose: {e}")
-        
-        # Joint limits in degrees for Roarm M3
-        joint_limits = {
-            'shoulder_pan': (-190, 190),
-            'shoulder_lift': (-110, 110),
-            'elbow_flex': (-70, 190),
-            'wrist_flex': (-110, 110),
-            'wrist_roll': (-190, 190),
-            'gripper': (-10, 100)
-        }
-        
-        # Convert to percentages [-100, +100] and create action dict
-        action_dict = {}
-        joint_names = ['shoulder_pan', 'shoulder_lift', 'elbow_flex', 'wrist_flex', 'wrist_roll', 'gripper']
-        
-        # the gripper goes from 0 (closed) to 100 (open) convert these first
-        if angles[5] < 0:
-            angles[5] = 0
-        elif angles[5] > 100:
-            angles[5] = 100
-            
-        
+        self._is_connected = False
 
-        for i, joint_name in enumerate(joint_names):
-            angle_deg = angles[i]
-            min_deg, max_deg = joint_limits[joint_name]
-            
-            # Map [min_deg, max_deg] → [-100, +100]
-            percentage = ((angle_deg - min_deg) / (max_deg - min_deg)) * 200.0 - 100.0
-            percentage = np.clip(percentage, -100.0, 100.0)
-            
-            action_dict[f"{joint_name}.pos"] = float(percentage)
-        
-        return RobotAction(**action_dict)
-    
-    def send_feedback(self, feedback: Any) -> None:
-        """Send feedback to teleoperator (not used for Roarm)."""
-        pass
-    
+    # ------------------------------------------------------------------
+    # Features
+    # ------------------------------------------------------------------
+
     @property
-    def action_features(self) -> dict[str, Any]:
-        """Get action features specification."""
-        return {
-            'action': {
-                'dtype': 'float32',
-                'shape': (6,),  # 6 joints
-                'names': ['base', 'shoulder', 'elbow', 'tilt', 'rotate', 'gripper']
-            }
-        }
+    def action_features(self) -> dict[str, type]:
+        """Joint positions in normalized format, matching the follower robot."""
+        joint_names = self.config.joint_names
+        features = {f"{j}.pos": float for j in joint_names}
+        if self.config.has_gripper:
+            features[f"{self.config.gripper_name}.pos"] = float
+        return features
+
+    @property
+    def feedback_features(self) -> dict[str, type]:
+        return {}
 
     @property
     def action_modes(self) -> list:
         """Machine-readable action space declaration (lerobot-action-space RFC)."""
-        from .roarm import ROARM_ACTION_MODES
         return ROARM_ACTION_MODES
-    
+
+    # ------------------------------------------------------------------
+    # Connection
+    # ------------------------------------------------------------------
+
     @property
-    def feedback_features(self) -> dict[str, Any]:
-        """Get feedback features specification."""
-        return {}  # No feedback for Roarm
-    
+    def is_connected(self) -> bool:
+        return self._is_connected
+
+    def connect(self, calibrate: bool = True) -> None:
+        if self.is_connected:
+            raise DeviceAlreadyConnectedError(f"{self} already connected")
+
+        location = self.config.host or self.config.port
+        logger.info(f"Connecting to Roarm teleoperator @ {location}...")
+
+        if self.config.port:
+            self.roarm = RoarmSDK(
+                roarm_type=self.config.roarm_type,
+                port=self.config.port,
+                baudrate=self.config.baudrate,
+            )
+        elif self.config.host:
+            self.roarm = RoarmSDK(
+                roarm_type=self.config.roarm_type,
+                host=self.config.host,
+            )
+        else:
+            raise ValueError("Either 'port' or 'host' must be set in config.")
+
+        time.sleep(0.5)
+        self.roarm.torque_set(cmd=0)  # disable torque → allow manual movement
+        time.sleep(0.1)
+
+        self._is_connected = True
+        logger.info(f"✓ Connected (torque disabled, ready for manual control)")
+
+    def disconnect(self) -> None:
+        if not self.is_connected:
+            raise DeviceNotConnectedError(f"{self} is not connected")
+
+        try:
+            self.roarm.torque_set(cmd=1)  # re-enable torque on disconnect
+            time.sleep(0.1)
+        except Exception as e:
+            logger.warning(f"Could not re-enable torque: {e}")
+
+        self._is_connected = False
+        logger.info(f"✓ Disconnected from Roarm teleoperator")
+
+    # ------------------------------------------------------------------
+    # Calibration (no-op)
+    # ------------------------------------------------------------------
+
+    @property
+    def is_calibrated(self) -> bool:
+        return True
+
+    def calibrate(self) -> None:
+        pass
+
+    def configure(self) -> None:
+        pass
+
+    # ------------------------------------------------------------------
+    # Unit conversion helpers (same logic as Roarm robot)
+    # ------------------------------------------------------------------
+
+    def _deg_to_norm(self, deg: float, joint_name: str) -> float:
+        """Physical degrees → normalized [-100, +100]."""
+        limits = self.config.joint_limits_deg
+        if joint_name in limits:
+            min_deg, max_deg = limits[joint_name]
+            norm = (deg - min_deg) / (max_deg - min_deg) * 200.0 - 100.0
+            return float(np.clip(norm, -100.0, 100.0))
+        return float(np.clip(deg / 180.0 * 100.0, -100.0, 100.0))
+
+    def _gripper_deg_to_norm(self, deg: float) -> float:
+        """Gripper degrees [0–90] → normalized [0, 100]."""
+        return float(np.clip(deg / 90.0 * 100.0, 0.0, 100.0))
+
+    # ------------------------------------------------------------------
+    # Action
+    # ------------------------------------------------------------------
+
+    def get_action(self) -> dict[str, Any]:
+        """
+        Read current joint positions from the leader arm.
+
+        Returns:
+            dict: {joint}.pos in [-100, +100], gripper.pos in [0, 100]
+        """
+        if not self.is_connected:
+            raise DeviceNotConnectedError(f"{self} is not connected")
+
+        angles = self.roarm.joints_angle_get()
+        if not angles or len(angles) < len(self.config.joint_names):
+            raise RuntimeError("Failed to read joint angles from Roarm teleoperator")
+
+        action: dict[str, Any] = {}
+
+        for i, joint_name in enumerate(self.config.joint_names):
+            action[f"{joint_name}.pos"] = self._deg_to_norm(angles[i], joint_name)
+
+        if self.config.has_gripper:
+            gripper_key = f"{self.config.gripper_name}.pos"
+            gripper_idx = len(self.config.joint_names)
+            if len(angles) > gripper_idx:
+                action[gripper_key] = self._gripper_deg_to_norm(angles[gripper_idx])
+            else:
+                action[gripper_key] = 0.0
+
+        return action
+
+    def send_feedback(self, feedback: dict[str, Any]) -> None:
+        pass
+
     def __repr__(self) -> str:
-        """String representation of the teleoperator."""
-        return (
-            f"{self.__class__.__name__}("
-            f"port={self.config.port}, "
-            f"host={self.config.host}, "
-            f"id={self.config.id}, "
-            f"connected={self._connected})"
-        )
+        location = self.config.host or self.config.port
+        return f"RoarmTeleoperator(location={location!r}, connected={self._is_connected})"

@@ -1,24 +1,14 @@
 """
-Roarm robot implementation for LeRobot.
-
-Compatible with lerobot >= 0.4.2 and >= 0.5.0.
+Roarm robot implementation for LeRobot >= 0.5.0.
 """
 import logging
-import time
 from typing import Any
 
 import numpy as np
 
-# Import compatibility for lerobot >= 0.4.2 and >= 0.5.0
-try:
-    from lerobot.cameras import make_cameras_from_configs
-except ImportError:
-    from lerobot.cameras.utils import make_cameras_from_configs  # type: ignore
-
-try:
-    from lerobot.robots import Robot
-except ImportError:
-    from lerobot.robots.robot import Robot  # type: ignore
+from lerobot.cameras.utils import make_cameras_from_configs
+from lerobot.robots.robot import Robot
+from lerobot.utils.errors import DeviceAlreadyConnectedError, DeviceNotConnectedError
 
 from .config_roarm import RoarmConfig
 
@@ -33,11 +23,11 @@ except ImportError:
 
 
 # ---------------------------------------------------------------------------
-# Action modes — machine-readable contract (lerobot-action-space compatible)
+# Action modes — machine-readable contract (lerobot-action-space RFC)
 # ---------------------------------------------------------------------------
 
-class _ActionMode:
-    """Minimal action mode descriptor, compatible with lerobot-action-space."""
+class ActionMode:
+    """Minimal action mode descriptor (lerobot-action-space compatible)."""
 
     def __init__(self, name, space_type, unit, command_mode, is_default=True,
                  preferred_hz=30, description=""):
@@ -55,7 +45,7 @@ class _ActionMode:
 
 
 ROARM_ACTION_MODES = [
-    _ActionMode(
+    ActionMode(
         name="joint_absolute_norm",
         space_type="joint",
         unit="normalized",
@@ -63,10 +53,10 @@ ROARM_ACTION_MODES = [
         is_default=True,
         preferred_hz=30,
         description=(
-            "Joint positions as percentages [-100, +100] mapped to physical joint limits. "
-            "SDK converts to degrees per joint (see joint_limits_deg in config). "
+            "Joint positions as percentages [-100, +100] mapped to physical joint limits "
+            "(see joint_limits_deg in config). "
             "Gripper [0, 100] (0=closed, 100=open). "
-            "Observations are also normalized: joints [-100, +100], gripper [0, 100]."
+            "Observations use the same normalized range."
         ),
     ),
 ]
@@ -74,12 +64,13 @@ ROARM_ACTION_MODES = [
 
 class Roarm(Robot):
     """
-    Roarm robot implementation for LeRobot framework (M1/M2/M3).
+    Roarm robot (M1/M2/M3) for LeRobot >= 0.5.0.
 
     Supports serial (port=) and WiFi (host=) connections via roarm_sdk.
 
-    Action format:  {joint}.pos in [-100, +100], gripper.pos in [0, 100]
-    Observation format: same normalized range (consistent with action space)
+    Action / observation contract:
+      - joint positions: normalized [-100, +100]  (mapped from physical degrees)
+      - gripper:         normalized [0, 100]       (0=closed, 100=open)
     """
 
     config_class = RoarmConfig
@@ -146,36 +137,40 @@ class Roarm(Robot):
 
     def connect(self, calibrate: bool = True) -> None:
         if self.is_connected:
-            from lerobot.errors import DeviceAlreadyConnectedError  # type: ignore
             raise DeviceAlreadyConnectedError(f"{self} already connected")
 
-        robot_id = f" ({self.config.host})" if self.config.host else f" ({self.config.port})"
-        logger.info(f"Connecting to {self.config.roarm_type}{robot_id}...")
+        location = self.config.host or self.config.port
+        logger.info(f"Connecting to {self.config.roarm_type} @ {location}...")
 
         try:
             self.robot.connect()
             self._is_connected = True
-            logger.info(f"✓ Connected to {self.config.roarm_type}{robot_id}")
         except Exception as e:
             raise ConnectionError(f"Failed to connect to Roarm: {e}") from e
 
         for cam in self.cameras.values():
             cam.connect()
 
+        logger.info(f"✓ Connected to {self.config.roarm_type} @ {location}")
+
     def disconnect(self) -> None:
-        robot_id = f" ({self.config.host})" if self.config.host else f" ({self.config.port})"
+        if not self._is_connected:
+            raise DeviceNotConnectedError(f"{self} is not connected")
+
         for cam in self.cameras.values():
             if cam.is_connected:
                 cam.disconnect()
+
         try:
             self.robot.disconnect()
         except Exception:
             pass
+
         self._is_connected = False
-        logger.info(f"✓ Disconnected from {self.config.roarm_type}{robot_id}")
+        logger.info(f"✓ Disconnected from {self.config.roarm_type}")
 
     # ------------------------------------------------------------------
-    # Calibration (no-op — Roarm has no motor calibration)
+    # Calibration (no-op — Roarm has no motor calibration step)
     # ------------------------------------------------------------------
 
     @property
@@ -189,20 +184,19 @@ class Roarm(Robot):
         pass
 
     # ------------------------------------------------------------------
-    # Helpers: unit conversion
+    # Unit conversion helpers
     # ------------------------------------------------------------------
 
     def _deg_to_norm(self, deg: float, joint_name: str) -> float:
-        """Convert degrees to normalized [-100, +100]."""
+        """Physical degrees → normalized [-100, +100]."""
         if joint_name in self.config.joint_limits_deg:
             min_deg, max_deg = self.config.joint_limits_deg[joint_name]
             norm = (deg - min_deg) / (max_deg - min_deg) * 200.0 - 100.0
             return float(np.clip(norm, -100.0, 100.0))
-        # Fallback: assume [-180, 180]
         return float(np.clip(deg / 180.0 * 100.0, -100.0, 100.0))
 
     def _norm_to_deg(self, norm: float, joint_name: str) -> float:
-        """Convert normalized [-100, +100] to degrees."""
+        """Normalized [-100, +100] → physical degrees."""
         if joint_name in self.config.joint_limits_deg:
             min_deg, max_deg = self.config.joint_limits_deg[joint_name]
             pct = np.clip(norm, -100.0, 100.0)
@@ -210,11 +204,11 @@ class Roarm(Robot):
         return float(np.clip(norm / 100.0 * 180.0, -180.0, 180.0))
 
     def _gripper_deg_to_norm(self, deg: float) -> float:
-        """Convert gripper angle (0–90°) to normalized [0, 100]."""
+        """Gripper degrees [0–90] → normalized [0, 100]."""
         return float(np.clip(deg / 90.0 * 100.0, 0.0, 100.0))
 
     def _gripper_norm_to_deg(self, norm: float) -> float:
-        """Convert normalized gripper [0, 100] to degrees (0–90°)."""
+        """Normalized [0, 100] → gripper degrees [0–90]."""
         return float(np.clip(norm / 100.0 * 90.0, 0.0, 90.0))
 
     # ------------------------------------------------------------------
@@ -223,19 +217,18 @@ class Roarm(Robot):
 
     def get_observation(self) -> dict[str, Any]:
         """
-        Read current state from robot.
+        Read current robot state.
 
-        Returns normalized values:
-          - joint positions: [-100, +100] (mapped from physical degrees)
-          - gripper: [0, 100] (0=closed, 100=open)
-          - camera images: HxWx3 arrays
+        Returns:
+            joint positions: normalized [-100, +100]
+            gripper:         normalized [0, 100]
+            camera images:   HxWx3 arrays
         """
         if not self.is_connected:
-            raise ConnectionError(f"{self} is not connected.")
+            raise DeviceNotConnectedError(f"{self} is not connected")
 
         obs: dict[str, Any] = {}
 
-        # Joint angles → normalized
         try:
             angles = self.robot.joints_angle_get()
             if angles:
@@ -246,7 +239,6 @@ class Roarm(Robot):
             for joint_name in self.config.joint_names:
                 obs[f"{joint_name}.pos"] = 0.0
 
-        # Gripper → normalized [0, 100]
         if self.config.has_gripper:
             try:
                 gripper_deg = self.robot.gripper_angle_get()
@@ -259,7 +251,6 @@ class Roarm(Robot):
                 logger.warning(f"Failed to read gripper: {e}")
                 obs[f"{self.config.gripper_name}.pos"] = 0.0
 
-        # Camera frames
         for cam_key, cam in self.cameras.items():
             obs[cam_key] = cam.async_read()
 
@@ -274,19 +265,16 @@ class Roarm(Robot):
         Send joint position targets to the robot.
 
         Args:
-            action: dict with {joint}.pos values in normalized [-100, +100].
-                    Gripper key: {gripper_name}.pos in [0, 100]
-                    (0 = fully closed, 100 = fully open).
+            action: {joint}.pos in [-100, +100], gripper.pos in [0, 100].
 
         Returns:
-            The action dict as sent (clamped to valid ranges).
+            The action as actually sent (clamped to valid ranges).
         """
         if not self.is_connected:
-            raise ConnectionError(f"{self} is not connected.")
+            raise DeviceNotConnectedError(f"{self} is not connected")
 
-        sent_action: dict[str, Any] = {}
+        sent: dict[str, Any] = {}
 
-        # Joints
         angles_deg = []
         for joint_name in self.config.joint_names:
             key = f"{joint_name}.pos"
@@ -294,13 +282,12 @@ class Roarm(Robot):
                 norm = float(action[key])
                 deg = self._norm_to_deg(norm, joint_name)
                 angles_deg.append(deg)
-                sent_action[key] = np.clip(norm, -100.0, 100.0)
+                sent[key] = float(np.clip(norm, -100.0, 100.0))
             else:
-                # Hold current position
                 current = self.get_observation()
                 norm = current.get(key, 0.0)
                 angles_deg.append(self._norm_to_deg(norm, joint_name))
-                sent_action[key] = norm
+                sent[key] = norm
 
         try:
             self.robot.joints_angle_ctrl(
@@ -311,30 +298,28 @@ class Roarm(Robot):
         except Exception as e:
             logger.warning(f"Failed to send joint command: {e}")
 
-        # Gripper — action value is [0, 100] (normalized), NOT radians
         if self.config.has_gripper:
             gripper_key = f"{self.config.gripper_name}.pos"
             if gripper_key in action:
                 norm = float(np.clip(action[gripper_key], 0.0, 100.0))
-                gripper_deg = self._gripper_norm_to_deg(norm)
-                sent_action[gripper_key] = norm
+                sent[gripper_key] = norm
                 try:
                     self.robot.gripper_angle_ctrl(
-                        angle=gripper_deg,
+                        angle=self._gripper_norm_to_deg(norm),
                         speed=self.config.default_speed,
                         acc=self.config.default_acc,
                     )
                 except Exception as e:
                     logger.warning(f"Failed to send gripper command: {e}")
 
-        return sent_action
+        return sent
 
     # ------------------------------------------------------------------
     # Safety
     # ------------------------------------------------------------------
 
     def teleop_safety_stop(self) -> None:
-        """Emergency stop — release torque."""
+        """Release torque (emergency stop)."""
         try:
             self.robot.torque_set(cmd=0)
             logger.warning("Emergency stop activated!")
