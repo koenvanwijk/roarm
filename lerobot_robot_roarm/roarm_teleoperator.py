@@ -11,8 +11,16 @@ from typing import Any
 import numpy as np
 from roarm_sdk import roarm as RoarmSDK
 
-from lerobot.processor import RobotAction, RobotObservation
-from lerobot.teleoperators.teleoperator import Teleoperator
+try:
+    from lerobot.processor import RobotAction, RobotObservation
+except ImportError:
+    RobotAction = dict  # type: ignore
+    RobotObservation = dict  # type: ignore
+
+try:
+    from lerobot.teleoperators.teleoperator import Teleoperator
+except ImportError:
+    from lerobot.teleoperators import Teleoperator  # type: ignore
 
 from .config_roarm_teleoperator import RoarmTeleoperatorConfig
 
@@ -147,8 +155,13 @@ class RoarmTeleoperator(Teleoperator):
         if not angles or len(angles) < 6:
             raise RuntimeError("Failed to read joint angles from teleoperator")
         
-        # Log leader position
-        logging.info(f"Leader position (deg): {[f'{a:.1f}' for a in angles[:6]]}")
+        # Get and log end-effector position
+        try:
+            pose = self.roarm.pose_get()
+            if pose and len(pose) >= 6:
+                logging.info(f"Leader EE pos (mm): x={pose[0]:.1f}, y={pose[1]:.1f}, z={pose[2]:.1f}, roll={pose[3]:.1f}°, pitch={pose[4]:.1f}°, yaw={pose[5]:.1f}°")
+        except Exception as e:
+            logging.debug(f"Could not get EE pose: {e}")
         
         # Joint limits in degrees for Roarm M3
         joint_limits = {
@@ -164,6 +177,14 @@ class RoarmTeleoperator(Teleoperator):
         action_dict = {}
         joint_names = ['shoulder_pan', 'shoulder_lift', 'elbow_flex', 'wrist_flex', 'wrist_roll', 'gripper']
         
+        # the gripper goes from 0 (closed) to 100 (open) convert these first
+        if angles[5] < 0:
+            angles[5] = 0
+        elif angles[5] > 100:
+            angles[5] = 100
+            
+        
+
         for i, joint_name in enumerate(joint_names):
             angle_deg = angles[i]
             min_deg, max_deg = joint_limits[joint_name]
@@ -190,6 +211,12 @@ class RoarmTeleoperator(Teleoperator):
                 'names': ['base', 'shoulder', 'elbow', 'tilt', 'rotate', 'gripper']
             }
         }
+
+    @property
+    def action_modes(self) -> list:
+        """Machine-readable action space declaration (lerobot-action-space RFC)."""
+        from .roarm import ROARM_ACTION_MODES
+        return ROARM_ACTION_MODES
     
     @property
     def feedback_features(self) -> dict[str, Any]:

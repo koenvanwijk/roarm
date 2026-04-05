@@ -3,9 +3,20 @@ Configuration for Roarm robot.
 """
 from dataclasses import dataclass, field
 
-from lerobot.cameras import CameraConfig
-from lerobot.cameras.opencv import OpenCVCameraConfig
-from lerobot.robots import RobotConfig
+try:
+    from lerobot.cameras import CameraConfig
+except ImportError:
+    from lerobot.cameras.configs import CameraConfig  # type: ignore
+
+try:
+    from lerobot.cameras.opencv import OpenCVCameraConfig
+except ImportError:
+    from lerobot.cameras.opencv.configuration_opencv import OpenCVCameraConfig  # type: ignore
+
+try:
+    from lerobot.robots import RobotConfig
+except ImportError:
+    from lerobot.robots.config import RobotConfig  # type: ignore
 
 
 @RobotConfig.register_subclass("lerobot_robot_roarm")

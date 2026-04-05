@@ -7,6 +7,7 @@ This package provides integration for Roarm robot arms with the [HuggingFace LeR
 - ✅ Full LeRobot Robot interface implementation
 - ✅ Support for both serial (USB) and WiFi connections
 - ✅ Roarm-to-Roarm teleoperation (leader-follower)
+- ✅ **WebRTC remote teleoperation** - Control robots over networks
 - ✅ SO-101 leader arm support with automatic percentage scaling
 - ✅ Joint position control with per-joint limits
 - ✅ Gripper control
@@ -132,6 +133,28 @@ python -m lerobot.scripts.lerobot_teleoperate \
 ```
 
 **Note:** SO-101 values (-100% to +100%) are automatically scaled to the full range of each Roarm joint.
+
+#### WebRTC Remote Teleoperation:
+
+Control a follower robot on a remote computer via WebRTC:
+
+```bash
+# 1. Start signaling server (on any accessible computer):
+python remote/webrtc_signaling.py --host 0.0.0.0 --port 8080
+
+# 2. On leader computer:
+python -m lerobot.scripts.lerobot_teleoperate \
+  --robot.type lerobot_robot_roarm_webrtc \
+  --robot.roarm_type roarm_m3 \
+  --robot.signaling_server "192.168.1.100:8080" \
+  --robot.cameras '{}' \
+  --teleop.type lerobot_robot_roarm \
+  --teleop.roarm_type roarm_m3 \
+  --teleop.port /dev/ttyUSB0 \
+  --fps 10
+```
+
+See [LEROBOT_TELEOPERATE_WEBRTC.md](LEROBOT_TELEOPERATE_WEBRTC.md) for detailed WebRTC teleoperation guide.
 
 ### 4. Recording Demonstrations
 
