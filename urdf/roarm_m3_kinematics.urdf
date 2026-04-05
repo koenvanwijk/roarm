@@ -1,0 +1,147 @@
+<?xml version="1.0"?>
+<!-- Roarm M3 kinematics-only URDF (no mesh dependencies)
+     Generated for use with lerobot RobotKinematics / placo FK+IK solver.
+     Source geometry: limjh6991-spec/roarm_isaac_clean assets/roarm_m3/urdf/roarm_m3.generated.urdf
+     EE frame: hand_tcp
+-->
+<robot name="roarm_m3">
+
+  <!-- Links (box proxies — no mesh files needed) -->
+  <link name="world"/>
+
+  <link name="base_link">
+    <inertial>
+      <mass value="0.5"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+    <collision>
+      <geometry><box size="0.06 0.06 0.04"/></geometry>
+    </collision>
+  </link>
+
+  <link name="link1">
+    <inertial>
+      <mass value="0.2"/>
+      <inertia ixx="0.0005" ixy="0" ixz="0" iyy="0.0005" iyz="0" izz="0.0005"/>
+    </inertial>
+    <collision>
+      <geometry><cylinder radius="0.02" length="0.05"/></geometry>
+    </collision>
+  </link>
+
+  <link name="link2">
+    <inertial>
+      <mass value="0.2"/>
+      <inertia ixx="0.0005" ixy="0" ixz="0" iyy="0.0005" iyz="0" izz="0.0005"/>
+    </inertial>
+    <collision>
+      <geometry><box size="0.22 0.025 0.025"/></geometry>
+    </collision>
+  </link>
+
+  <link name="link3">
+    <inertial>
+      <mass value="0.15"/>
+      <inertia ixx="0.0003" ixy="0" ixz="0" iyy="0.0003" iyz="0" izz="0.0003"/>
+    </inertial>
+    <collision>
+      <geometry><box size="0.025 0.13 0.025"/></geometry>
+    </collision>
+  </link>
+
+  <link name="link4">
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.0002" ixy="0" ixz="0" iyy="0.0002" iyz="0" izz="0.0002"/>
+    </inertial>
+    <collision>
+      <geometry><box size="0.025 0.06 0.025"/></geometry>
+    </collision>
+  </link>
+
+  <link name="link5">
+    <inertial>
+      <mass value="0.08"/>
+      <inertia ixx="0.0001" ixy="0" ixz="0" iyy="0.0001" iyz="0" izz="0.0001"/>
+    </inertial>
+    <collision>
+      <geometry><cylinder radius="0.015" length="0.08"/></geometry>
+    </collision>
+  </link>
+
+  <link name="gripper_link">
+    <inertial>
+      <mass value="0.05"/>
+      <inertia ixx="0.00005" ixy="0" ixz="0" iyy="0.00005" iyz="0" izz="0.00005"/>
+    </inertial>
+    <collision>
+      <geometry><box size="0.03 0.03 0.05"/></geometry>
+    </collision>
+  </link>
+
+  <!-- EE frame -->
+  <link name="hand_tcp"/>
+
+  <!-- Joints (exact transforms from roarm_m3.generated.urdf) -->
+
+  <joint name="world_to_base_link" type="fixed">
+    <origin xyz="0.0 0.0 0.0701" rpy="0 0 0"/>
+    <parent link="world"/>
+    <child link="base_link"/>
+  </joint>
+
+  <joint name="base_link_to_link1" type="revolute">
+    <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+    <parent link="base_link"/>
+    <child link="link1"/>
+    <axis xyz="0.0 0.0 1.0"/>
+    <limit lower="-1.5708" upper="1.5708" effort="6.0" velocity="4.0"/>
+  </joint>
+
+  <joint name="link1_to_link2" type="revolute">
+    <origin xyz="0.0 0.0 0.051959" rpy="-1.5708 -1.5708 0"/>
+    <parent link="link1"/>
+    <child link="link2"/>
+    <axis xyz="-0.0 0 1.0"/>
+    <limit lower="-1.5708" upper="1.5708" effort="6.0" velocity="3.5"/>
+  </joint>
+
+  <joint name="link2_to_link3" type="revolute">
+    <origin xyz="0.236815 0.030002 0" rpy="0 0 1.5708"/>
+    <parent link="link2"/>
+    <child link="link3"/>
+    <axis xyz="0.0 0.0 1.0"/>
+    <limit lower="-1.0" upper="2.95" effort="5.0" velocity="3.0"/>
+  </joint>
+
+  <joint name="link3_to_link4" type="revolute">
+    <origin xyz="0.0 -0.144586 0" rpy="0 0 0"/>
+    <parent link="link3"/>
+    <child link="link4"/>
+    <axis xyz="0.0 0.0 1.0"/>
+    <limit lower="-1.5708" upper="1.5708" effort="4.5" velocity="3.0"/>
+  </joint>
+
+  <joint name="link4_to_link5" type="revolute">
+    <origin xyz="0.015147 -0.053653 0" rpy="1.5708 1.5708 0"/>
+    <parent link="link4"/>
+    <child link="link5"/>
+    <axis xyz="0.0 0.0 1.0"/>
+    <limit lower="-3.1416" upper="3.1416" effort="3.5" velocity="4.0"/>
+  </joint>
+
+  <joint name="link5_to_gripper_link" type="revolute">
+    <origin xyz="0.00 0.018821 0.052035" rpy="-1.5708 -1.5708 0"/>
+    <parent link="link5"/>
+    <child link="gripper_link"/>
+    <axis xyz="0.0 -0.0 1.0"/>
+    <limit lower="0.0" upper="1.5" effort="2.5" velocity="2.5"/>
+  </joint>
+
+  <joint name="link5_to_hand_tcp" type="fixed">
+    <origin xyz="0 0 0.115428" rpy="1.5708 -1.5708 0"/>
+    <parent link="link5"/>
+    <child link="hand_tcp"/>
+  </joint>
+
+</robot>

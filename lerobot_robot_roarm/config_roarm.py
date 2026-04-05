@@ -49,6 +49,17 @@ class RoarmConfig(RobotConfig):
     has_gripper: bool = True
     gripper_name: str = "gripper"
 
+    # Kinematics (optional — enables EE mode)
+    urdf_path: str | None = None          # e.g. "urdf/roarm_m3_kinematics.urdf"
+    ee_frame_name: str = "hand_tcp"       # EE frame in URDF
+    ik_joint_names: list[str] = field(default_factory=lambda: [
+        "base_link_to_link1",
+        "link1_to_link2",
+        "link2_to_link3",
+        "link3_to_link4",
+        "link4_to_link5",
+    ])
+
     # Cameras
     cameras: dict[str, CameraConfig] = field(
         default_factory=lambda: {

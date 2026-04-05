@@ -59,6 +59,20 @@ ROARM_ACTION_MODES = [
             "Observations use the same normalized range."
         ),
     ),
+    ActionMode(
+        name="ee_absolute_m",
+        space_type="cartesian",
+        unit="m",
+        command_mode="absolute",
+        is_default=False,
+        preferred_hz=30,
+        description=(
+            "End-effector pose as 4x4 homogeneous matrix (T_world_hand_tcp). "
+            "Robot internally solves IK to joint targets. "
+            "Requires urdf_path in RoarmConfig. "
+            "Keys: ee.pose (4x4 np.ndarray) + ee.gripper_pos [0,100]."
+        ),
+    ),
 ]
 
 
@@ -94,6 +108,21 @@ class Roarm(Robot):
 
         self.cameras = make_cameras_from_configs(config.cameras)
         self._is_connected = False
+
+        # Optional FK/IK solver (loaded when urdf_path is set in config)
+        self._kinematics = None
+        self._ik_current_joints_deg: np.ndarray | None = None
+        if config.urdf_path is not None:
+            try:
+                from lerobot.model.kinematics import RobotKinematics
+                self._kinematics = RobotKinematics(
+                    urdf_path=config.urdf_path,
+                    target_frame_name=config.ee_frame_name,
+                    joint_names=config.ik_joint_names,
+                )
+                logger.info(f"✓ FK/IK solver loaded from {config.urdf_path}")
+            except Exception as e:
+                logger.warning(f"Could not load kinematics solver: {e} — EE mode unavailable")
 
     # ------------------------------------------------------------------
     # Features
@@ -262,20 +291,32 @@ class Roarm(Robot):
 
     def send_action(self, action: dict[str, Any]) -> dict[str, Any]:
         """
-        Send joint position targets to the robot.
+        Send action to the robot.
 
-        Args:
-            action: {joint}.pos in [-100, +100], gripper.pos in [0, 100].
+        Supports two modes:
+          - Joint mode: {joint}.pos in [-100, +100], gripper.pos in [0, 100]
+          - EE mode:    ee.pose (4x4 np.ndarray, T_world_hand_tcp in meters)
+                        + ee.gripper_pos [0, 100]
+                        (requires urdf_path in config)
 
         Returns:
-            The action as actually sent (clamped to valid ranges).
+            The action as actually sent.
         """
         if not self.is_connected:
             raise DeviceNotConnectedError(f"{self} is not connected")
 
-        sent: dict[str, Any] = {}
+        # --- EE mode ---
+        if "ee.pose" in action:
+            return self._send_action_ee(action)
 
+        # --- Joint mode (default) ---
+        return self._send_action_joints(action)
+
+    def _send_action_joints(self, action: dict[str, Any]) -> dict[str, Any]:
+        """Send joint-space action (normalized [-100,+100])."""
+        sent: dict[str, Any] = {}
         angles_deg = []
+
         for joint_name in self.config.joint_names:
             key = f"{joint_name}.pos"
             if key in action:
@@ -295,6 +336,8 @@ class Roarm(Robot):
                 speed=self.config.default_speed,
                 acc=self.config.default_acc,
             )
+            # Update IK warm-start
+            self._ik_current_joints_deg = np.array(angles_deg[:len(self.config.ik_joint_names)])
         except Exception as e:
             logger.warning(f"Failed to send joint command: {e}")
 
@@ -312,6 +355,41 @@ class Roarm(Robot):
                 except Exception as e:
                     logger.warning(f"Failed to send gripper command: {e}")
 
+        return sent
+
+    def _send_action_ee(self, action: dict[str, Any]) -> dict[str, Any]:
+        """Send end-effector pose action. Solves IK internally."""
+        if self._kinematics is None:
+            raise RuntimeError(
+                "EE mode requires urdf_path in RoarmConfig. "
+                "Set config.urdf_path to enable FK/IK."
+            )
+
+        ee_pose = np.array(action["ee.pose"])  # 4x4 homogeneous matrix
+        if ee_pose.shape != (4, 4):
+            raise ValueError(f"ee.pose must be a 4x4 matrix, got shape {ee_pose.shape}")
+
+        # Use warm-start from last joint state (in degrees, as RobotKinematics expects)
+        if self._ik_current_joints_deg is None:
+            self._ik_current_joints_deg = np.zeros(len(self.config.ik_joint_names))
+
+        joints_deg = self._kinematics.inverse_kinematics(
+            self._ik_current_joints_deg, ee_pose
+        )
+
+        # Map IK result (degrees) to normalized joint action
+        joint_action = {}
+        for i, joint_name in enumerate(self.config.ik_joint_names):
+            if joint_name in self.config.joint_names:
+                norm = self._deg_to_norm(float(joints_deg[i]), joint_name)
+                joint_action[f"{joint_name}.pos"] = norm
+
+        # Pass gripper through
+        if "ee.gripper_pos" in action:
+            joint_action[f"{self.config.gripper_name}.pos"] = action["ee.gripper_pos"]
+
+        sent = self._send_action_joints(joint_action)
+        sent["ee.pose"] = ee_pose
         return sent
 
     # ------------------------------------------------------------------
